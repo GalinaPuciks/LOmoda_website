@@ -1,4 +1,6 @@
 const headerCityButton = document.querySelector('.header__city-button');
+const cartListGoods = document.querySelector(".cart__list-goods");
+const cartTotalCost = document.querySelector(".cart__total-cost"); 
 
 let hash = location.hash.substring(1);
 
@@ -10,6 +12,46 @@ headerCityButton.addEventListener('click', () => {
     localStorage.setItem('lomoda-location', city)
 });
 
+const getLocalStorage = () => JSON?.parse(localStorage.getItem("cart-lomoda")) || [];
+const setLocalStorage = data => localStorage.setItem("cart-lomoda", JSON.stringify(data));
+
+const renderCart = () => {
+    cartListGoods.textContent = "";
+
+    const cartItems = getLocalStorage();
+    let totalPrice = 0;
+
+    cartItems.forEach((item, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+     
+        <td>${i+1}</td>
+        <td>${item.brand} ${item.name}</td>
+        ${item.color ? `<td>${item.color}</td>`: "<td>-</td>"}
+        ${item.size ? `<td>${item.size}</td>`: "<td>-</td>"}
+        <td>${item.cost} &#8381;</td>
+        <td><button class="btn-delete" data-id="${item.id}">&times;</button></td>
+  
+        `;
+        totalPrice += item.cost;
+        cartListGoods.append(tr);
+    });
+
+    cartTotalCost.textContent = totalPrice + " P";
+}
+
+const deleteItemCart = id => {
+    const cartItems = getLocalStorage();
+    const newCartItems = cartItems.filter(item => item.id !== id);
+    setLocalStorage(newCartItems);
+}
+
+cartListGoods.addEventListener("click", e => {
+    if(e.target.matches(".btn-delete")) {
+        deleteItemCart(e.target.dataset.id);
+        renderCart();
+    }
+})
 // скролл
 
 const disableScroll = () => {
@@ -41,10 +83,13 @@ const cartOverlay = document.querySelector('.cart-overlay');
 
 const cartModalOpen = () => {
     cartOverlay.classList.add('cart-overlay-open');
+    disableScroll();
+    renderCart();
 };
 
 const cartModalClose = () => {
     cartOverlay.classList.remove('cart-overlay-open');
+    enableScroll();
 };
 
 
@@ -61,11 +106,11 @@ const getData = async () => {
     }
 };
 
-const getGoods = (callback, value) => {
+const getGoods = (callback, prop, value) => {
     getData()
     .then(data => {
         if(value) {
-            callback(data.filter(item => item.category === value))
+            callback(data.filter(item => item[prop] === value))
         } else {
             callback(data);
         }
@@ -85,6 +130,14 @@ try {
     if(!goodsList) {
         throw "This is not a goods page!"
     }
+
+    const goodsTitle = document.querySelector(".goods__title");
+
+    const changeTitle = () => {
+        goodsTitle.textContent = document.querySelector(`[href*="#${hash}"]`).textContent;
+    }
+
+   
 
     const createCard = ({id, preview, cost, brand, name, sizes}) => {
    
@@ -128,9 +181,89 @@ try {
 
 window.addEventListener("hashchange", () =>{
     hash = location.hash.substring(1);
-    getGoods(renderGoodsList, hash);
+    getGoods(renderGoodsList, "category", hash);
+    changeTitle();
 })
-    getGoods(renderGoodsList, hash);
+    changeTitle();
+    getGoods(renderGoodsList, "category", hash);
 } catch(err) {
 
+}
+
+try {
+    if(!document.querySelector(".card-good")){
+        throw "This is not a card-good page";
+    }
+    const cardGoodImage = document.querySelector(".card-good__image");
+    const cardGoodBrand = document.querySelector(".card-good__brand");
+    const cardGoodTitle = document.querySelector(".card-good__title");
+    const cardGoodPrice = document.querySelector(".card-good__price");
+    const cardGoodColor = document.querySelector(".card-good__color");
+    const cardGoodColorList = document.querySelector(".card-good__color-list"); 
+    const cardGoodSizes = document.querySelector(".card-good__sizes");
+    const cardGoodSizesList = document.querySelector(".card-good__sizes-list");
+    const cardGoodBuy = document.querySelector(".card-good__buy");
+    const cardGoodSelectWrapper = querySelectorAll(".card-good__select__wrapper");
+
+    const generateList = data => data.reduce((html, item, i) => 
+    html + `<li class="card-good__select-item" data-id="${i}">${item}</li>`, 
+    "");
+
+    const renderCardGood = ([{id, brand, name, cost, cardGoodColor, sizes, photo}]) => {
+
+        const data = {brand, name, cost, id };
+
+        cardGoodImage.src = `goods-image/${photo}`;
+        cardGoodImage.alt = `${brand} ${name}`;
+        cardGoodBrand.textContent = brand;
+        cardGoodTitle.textContent = name;
+        cardGoodPrice.textContent = `${cost} &#8381`;
+        if (color) { 
+            cardGoodColor.textContent = color[0];
+            cardGoodColor.dataset.id = 0;
+            cardGoodColorList.innerHTML = generateList(color);
+        } else {
+            cardGoodColor.style.display =  "none";
+        }
+        if (sizes) {
+            cardGoodSizes.textContent = sizes[0];
+            cardGoodSizes.dataset.id = 0;
+            cardGoodSizesList.innerHTML = generateList(sizes);
+        }  else {
+            cardGoodSizes.style.display =  "none";
+        }
+
+        cardGoodBuy.addEventListener("click", () => {
+            if(color) data.color = cardGoodColor.textContent;
+            if(sizes) data.size = cardGoodSizes.textContent;
+
+            const cardData = getLocalStorage();
+            cardData.push(data);
+            setLocalStorage(cardData);
+        });
+    };
+
+    cardGoodSelectWrapper.forEach(item => {
+        item.addEventListener("click", e => {
+            const target = e.target;
+
+            if(target.closest(".card-good__select")) {
+                target.classList.toggle("card-good__select__open");
+            }
+
+            if(target.closest(".card-good__select-item")) {
+                const cardGoodSelect = item.querySelector(".card-good__select");
+                cardGoodSelect.textContent = target.textContent;
+                cardGoodSelect.dataset.id = target.dataset.id;
+                cardGoodSelect.classList.remove("card-good__select__open");
+            }
+           
+        });
+    });
+
+   
+    getGoods(renderCardGood, "id", hash)
+
+} catch(err) {
+    console.warn(err);
 }
